@@ -22,4 +22,4 @@
 
 #### Necessary library:
 
-utils.py
+utils.py [needed for notebooks]
