@@ -2,7 +2,7 @@
 
 01_EDA.ipynb
 
-#### Notebooks for model training for the different configurations:
+#### Notebooks for model training for the 4 different configurations:
 
 02a_Train_ResNet18_Base.ipynb
 
