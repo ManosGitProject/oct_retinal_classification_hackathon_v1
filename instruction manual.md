@@ -1,4 +1,4 @@
-#### Notebook used for the Exploratory Data Analysis:
+#### Notebook used for Exploratory Data Analysis:
 
 01_EDA.ipynb
 
