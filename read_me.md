@@ -52,7 +52,7 @@ The following metrics are reported:
 Accuracy, Precision, Recall, Macro F1-score, Expected Calibration Error (ECE), High-confidence misclassification rate (>0.9)
 
 #### Grad-CAM Visualization (heatmaps):
-Class activation overlays and Visualization of disease-relevant retinal regions
+Class activation overlays and visualization of disease-relevant retinal regions.
 
 #### Calibration (Future Work):
 Post-hoc calibration (Temperature Scaling) can be applied to reduce overconfidence without affecting accuracy.
