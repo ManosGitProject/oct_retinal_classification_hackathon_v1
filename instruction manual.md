@@ -1,6 +1,6 @@
 OCT Retinal Disease Classification using Deep Learning
 
-Overview
+Overview:
 This repository implements deep learning models for multi-class OCT retinal disease classification (CNV, DME, DRUSEN, NORMAL) using ResNet-18 and 
 DenseNet-121 architectures. The framework includes:
 
