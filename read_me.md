@@ -18,7 +18,7 @@ DenseNet-121 architectures.
 The experiments are based on the public OCT dataset (Kermany et al.), containing four classes:
 CNV, DME, DRUSEN and NORMAL [Each sample is a retinal OCT B-scan image.]
 
-####Project Structure:
+#### Project Structure:
 
 └── intruction manual.md
 └── Final_Models
