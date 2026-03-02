@@ -1,8 +1,8 @@
-#### Notebook used for Exploratory Data Analysis:
+#### Notebook used for the Exploratory Data Analysis:
 
 01_EDA.ipynb
 
-#### Notebook for training model connfigurations:
+#### Notebooks for model training for the different configurations:
 
 02a_Train_ResNet18_Base.ipynb
 
