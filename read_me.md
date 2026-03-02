@@ -58,11 +58,7 @@ Class activation overlays and visualization of disease-relevant retinal regions.
 Post-hoc calibration (Temperature Scaling) can be applied to reduce overconfidence without affecting accuracy.
 
 #### Typical performance:
-Accuracy ≈ 96%
-Macro F1 ≈ 0.95
-ECE ≈ 0.03
-High-confidence errors < 1%
-Hard-case refinement significantly reduces high-confidence misclassifications.
+Accuracy ≈ 96%, Macro F1 ≈ 0.95, ECE ≈ 0.03, High-confidence errors < 1%, Hard-case refinement significantly reduces high-confidence misclassifications.
 
 #### Experiments were conducted on:
 NVIDIA A100 (batch size 256 and 512) 
