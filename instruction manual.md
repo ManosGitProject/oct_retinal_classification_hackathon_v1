@@ -1,7 +1,7 @@
 
 ### Instructions
 
-Each of the file can run autonomously along with the util.py for the functions used.
+Each of the file can run autonomously along with the utils.py for the functions used.
 
 Run notebooks based on the following order: 01 --> [02a or 02b or 02c or 02d] --> 03 --> 04
 
