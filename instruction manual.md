@@ -1,3 +1,7 @@
+Each of the file can run autonomously along with the util.py for the functions used.
+
+Run notebooks based on the following order: 01 --> [02a or 02b or 02c or 02d] --> 03 --> 04
+
 #### Notebook used for the Exploratory Data Analysis:
 
 01_EDA.ipynb
@@ -22,4 +26,4 @@
 
 #### Necessary library:
 
-utils.py [needed for notebooks]
+utils.py [needed for notebooks to run]
