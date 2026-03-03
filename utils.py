@@ -1,7 +1,7 @@
 
 import os
 from PIL import Image
-from torch.utils.data import Dataset, Subset
+from torch.utils.data import Dataset, Subset, WeightedRandomSampler
 import pandas as pd
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ from torchvision.models import resnet18
 import copy
 import torch.nn as nn
 import cv2
+from torch.optim import LBFGS
 
 def create_paths(model_name, augmented, env):
     suffix = "aug" if augmented else "no_aug"
@@ -775,3 +776,138 @@ def visualize_gradcam(image_tensor, cam, true_class, pred_class, pred_conf, true
     
     if save_path: plt.savefig(save_path, bbox_inches='tight')
     plt.show()
+
+
+def collect_hard_examples(final_model, loader, device, threshold=0.9):
+    final_model.eval()
+    hard_indices = []
+
+    # Track class distribution of hard samples
+    class_stats = {0: 0, 1: 0, 2: 0, 3: 0}
+
+    with torch.no_grad():
+        # Use enumerate to get the batch index
+        for batch_idx, (images, labels) in enumerate(tqdm(loader, desc="Hard Mining")):
+            images, labels = images.to(device), labels.to(device)
+
+            outputs = final_model(images)
+            probs = torch.softmax(outputs, dim=1)
+
+            # Get max probability and predicted class
+            confs, preds = torch.max(probs, dim=1)
+
+            for i in range(len(labels)):
+                # Calculate the ABSOLUTE index in the dataset
+                global_idx = batch_idx * loader.batch_size + i
+
+                # Logic: Prediction is wrong AND model was very sure
+                if preds[i] != labels[i] and confs[i] > threshold:
+                    hard_indices.append(global_idx)
+                    class_stats[labels[i].item()] += 1
+
+    print(f"\nFound {len(hard_indices)} 'Confidently Incorrect' samples.")
+    print(f"Distribution of errors by True Class: {class_stats}")
+    return hard_indices
+
+def create_weighted_sampler(dataset, hard_indices):
+    labels = dataset.df['label_encoded'].values
+    weights = np.ones(len(labels), dtype=np.float64)
+
+    weights[labels == 2] *= 1.4
+
+    hard_indices_set = set(hard_indices)
+
+    for idx in hard_indices:
+        weights[idx] = max(weights[idx], 1.5)
+
+    weights = np.nan_to_num(weights, nan=1.0, posinf=10.0)
+    weights[weights <= 0] = 1e-7
+
+    torch_weights = torch.from_numpy(weights).to(torch.double)
+
+    return WeightedRandomSampler(weights=torch_weights, num_samples=len(torch_weights), replacement=True)
+
+def unfreeze_last_block_densenet(final_model):
+    # Freeze everything first
+    for param in final_model.parameters():
+        param.requires_grad = False
+
+    # Unfreeze the final dense block and the final transition/norm layers
+    for param in final_model.features.denseblock4.parameters():
+        param.requires_grad = True
+    for param in final_model.features.norm5.parameters():
+        param.requires_grad = True
+
+    # Unfreeze the classifier (DenseNet uses 'classifier', not 'fc')
+    for param in final_model.classifier.parameters():
+        param.requires_grad = True
+
+    print("Unfroze classifier + denseblock4")
+
+def fine_tune(final_model, train_loader, val_loader, optimizer, criterion, device, epochs, path):
+    swa_path = os.path.join(path, "densenet_swa_refined.pth")
+
+    swa_model = torch.optim.swa_utils.AveragedModel(final_model)
+    # Start SWA after a few epochs of warming up the unmasked layers
+    swa_start = 2
+    print(epochs)
+    for epoch in range(epochs):
+        # Training
+        final_model.train()
+        total_train_loss = 0
+        for images, labels in tqdm(train_loader, desc=f"Epoch {epoch+1} [Train]"):
+            images, labels = images.to(device), labels.to(device)
+
+            optimizer.zero_grad()
+            outputs = final_model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            total_train_loss += loss.item()
+
+        # SWA Update
+        if epoch >= swa_start:
+            swa_model.update_parameters(final_model)
+            print(f"--- SWA updated at end of Epoch {epoch+1} ---")
+
+        # Validation
+        final_model.eval()
+        total_val_loss = 0
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = final_model(images)
+                loss = criterion(outputs, labels)
+                total_val_loss += loss.item()
+
+        avg_val = total_val_loss / len(val_loader)
+        print(f"Epoch {epoch+1}: Train Loss: {total_train_loss/len(train_loader):.4f} | Val Loss: {avg_val:.4f}")
+
+    # SWA model
+    torch.optim.swa_utils.update_bn(train_loader, swa_model, device=device)
+    torch.save(swa_model.state_dict(), swa_path)
+    return swa_model
+
+def perform_temperature_scaling(logits, labels, device):
+    # Convert numpy arrays from your inference to torch tensors
+    logits = torch.from_numpy(logits).to(device)
+    labels = torch.from_numpy(labels).long().to(device)
+
+    # Initialize Temperature (T).
+    # T > 1 "smoothes" the distribution (lowers confidence)
+    # T < 1 "sharpens" it.
+    temperature = nn.Parameter(torch.ones(1).to(device) * 1.1)
+
+    # We only want to optimize 'temperature'
+    optimizer = LBFGS([temperature], lr=0.01, max_iter=100)
+    criterion = nn.CrossEntropyLoss()
+
+    def eval_loop():
+        optimizer.zero_grad()
+        loss = criterion(logits / temperature, labels)
+        loss.backward()
+        return loss
+
+    optimizer.step(eval_loop)
+
+    return temperature.item()
